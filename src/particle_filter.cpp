@@ -48,7 +48,7 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
 	//  http://www.cplusplus.com/reference/random/default_random_engine/
   double std_x = std_pos[0];
   double std_y = std_pos[1];
-  double std_theta = std_pos[2] ; // Standard deviations for x, y, and psi
+  double std_theta = std_pos[2] ; // Standard deviations for x, y, and theta
   std::default_random_engine gen;
 
   if(fabs(yaw_rate)<0.001){
@@ -139,7 +139,7 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
     /**
      * Translate vehicle coordinates into map coordinates
      */
-    for (const LandmarkObs& cur_obs : observations)
+    for (LandmarkObs& cur_obs : observations)
     {
       LandmarkObs landmark_t;
       landmark_t.id = cur_obs.id;
@@ -148,7 +148,7 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
       translated_observations.push_back(landmark_t);
     }
 
-    std::vector<LandmarkObs> predicted;
+    std::vector<LandmarkObs> valid_landmarks;
 
     for (Map::single_landmark_s landmark : map_landmarks.landmark_list) {
       /**
@@ -156,24 +156,24 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
        * keep it else discard it from the list of landmarks for the given particle
        */
       if (dist(landmark.x_f, landmark.y_f, current_particle.x, current_particle.y) <= sensor_range) {
-        LandmarkObs prediction  = LandmarkObs();
-        prediction.id = landmark.id_i;
-        prediction.x = landmark.x_f;
-        prediction.y = landmark.y_f;
-        predicted.push_back(prediction);
+        LandmarkObs lm  = LandmarkObs();
+        lm.id = landmark.id_i;
+        lm.x = landmark.x_f;
+        lm.y = landmark.y_f;
+        valid_landmarks.push_back(lm);
       }
     }
 
     /**
      * Associate each observation with the corresponding landmark
      */
-    dataAssociation(predicted, translated_observations);
+    dataAssociation(valid_landmarks, translated_observations);
 
 
     /**
      * Update weights
      */
-    double new_weight_product = 1;
+    double new_weight = 1;
     for (LandmarkObs& current_observation : translated_observations)
     {
       Map::single_landmark_s cur_pred = map_landmarks.landmark_list[current_observation.id-1];
@@ -181,14 +181,14 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
       double dx = current_observation.x - cur_pred.x_f;
       double dy = current_observation.y - cur_pred.y_f;
 
-      double new_weight = 1 / (M_PI * 2 * std_landmark[0] * std_landmark[1]) *
+      double updated_weight = 1 / (M_PI * 2 * std_landmark[0] * std_landmark[1]) *
           std::exp(-1 * (((dx*dx) / (std_landmark[0]*std_landmark[0])) + ((dy*dy) / (std_landmark[1]*std_landmark[1]))));
 
-      new_weight_product *= new_weight;
+      new_weight *= updated_weight;
     }
 
-    current_particle.weight = new_weight_product;
-    weights.at(i) = new_weight_product;
+    current_particle.weight = new_weight;
+    weights.at(i) = new_weight;
   }
 
 
